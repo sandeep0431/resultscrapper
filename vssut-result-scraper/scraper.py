@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -10,34 +11,48 @@ import requests
 from requests import RequestException
 from tqdm import tqdm
 
-from config import (
-    BASE_URL,
-    CCID,
-    CGPA_OUTPUT_FILE,
-    DEFAULT_WORKERS,
-    HEADERS,
-    RANGE1_END,
-    RANGE1_START,
-    RANGE2_END,
-    RANGE2_START,
-    RANGE3_END,
-    RANGE3_START,
-    REQUEST_DELAY,
-    REQUEST_TIMEOUT,
-    RESULT_RID,
-    SGPA_OUTPUT_FILE,
-)
+import config
+from config import BASE_URL, CCID, CGPA_OUTPUT_FILE, DEFAULT_WORKERS, HEADERS, REQUEST_DELAY, REQUEST_TIMEOUT, RESULT_RID, SGPA_OUTPUT_FILE
 from parser import parse_result_page
 from ranking import build_ranking_dataframe, format_top_students, save_dataframe_to_excel
 
 
+def load_registration_ranges() -> list[tuple[int, int]]:
+    if hasattr(config, "REGISTRATION_RANGES"):
+        ranges = list(config.REGISTRATION_RANGES)
+    else:
+        range_map: dict[int, dict[str, int]] = {}
+        for attr_name, value in vars(config).items():
+            match = re.fullmatch(r"RANGE(\d+)_(START|END)", attr_name)
+            if not match:
+                continue
+            index = int(match.group(1))
+            bound = match.group(2).lower()
+            range_map.setdefault(index, {})[bound] = int(value)
+        ranges = [
+            (bounds["start"], bounds["end"])
+            for _, bounds in sorted(range_map.items())
+            if "start" in bounds and "end" in bounds
+        ]
+
+    if not ranges:
+        raise ValueError("No registration ranges found in config.py")
+
+    normalized_ranges: list[tuple[int, int]] = []
+    for start, end in ranges:
+        if start > end:
+            raise ValueError(f"Invalid registration range: {start} > {end}")
+        normalized_ranges.append((int(start), int(end)))
+    return normalized_ranges
+
+
 def generate_registration_numbers() -> list[str]:
-    ranges = (
-        range(RANGE1_START, RANGE1_END + 1),
-        range(RANGE2_START, RANGE2_END + 1),
-        range(RANGE3_START, RANGE3_END + 1),
-    )
-    return [str(regd_no) for registration_range in ranges for regd_no in registration_range]
+    registration_ranges = load_registration_ranges()
+    return [
+        str(regd_no)
+        for start, end in registration_ranges
+        for regd_no in range(start, end + 1)
+    ]
 
 
 def build_request_params(registration_number: str) -> dict[str, str]:

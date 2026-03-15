@@ -28,6 +28,9 @@ Or install from the project file:
 ```bash
 pip install -r requirements.txt
 ```
+...cd vssut-result-scraper
+pip install -r requirements.txt
+python scraper.py...
 
 ## Run the scraper
 
@@ -56,20 +59,18 @@ The script:
 
 ## Registration ranges
 
-The current ranges are defined in `config.py`:
+The ranges are defined in `config.py`.
+
+Preferred format:
 
 ```python
-RANGE1_START = 2402040001
-RANGE1_END = 2402040117
-
-RANGE2_START = 2402041118
-RANGE2_END = 2402041156
-
-RANGE3_START = 2402081001
-RANGE3_END = 2402081078
+REGISTRATION_RANGES = [
+    (2402070001, 2402070077),
+    (2402070078, 2402070156),
+]
 ```
 
-Change these constants in `config.py` to scrape a different registration window.
+You can add or remove tuples as needed. The scraper also supports the older `RANGE1_START`, `RANGE1_END`, `RANGE2_START`, `RANGE2_END` style automatically.
 
 ## Notes about the VSSUT portal
 
